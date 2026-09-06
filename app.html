@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="An interactive 3D simulated cube with transparent forward faces, customizable parallel line wall textures, and modular draggable settings panels.">
+  <title>RoomSim - Dynamic 3D Room Cube</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+  
+  <!-- Import Map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <!-- Global Error Logger for Debugging -->
+  <script>
+    window.addEventListener('error', function(e) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '10px';
+      errorDiv.style.right = '10px';
+      errorDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.95)';
+      errorDiv.style.color = 'white';
+      errorDiv.style.padding = '16px';
+      errorDiv.style.borderRadius = '8px';
+      errorDiv.style.zIndex = '999999';
+      errorDiv.style.fontFamily = 'monospace';
+      errorDiv.style.fontSize = '12px';
+      errorDiv.style.maxWidth = '400px';
+      errorDiv.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+      errorDiv.style.border = '1px solid rgba(255,255,255,0.2)';
+      errorDiv.style.wordBreak = 'break-all';
+      errorDiv.style.whiteSpace = 'pre-wrap';
+      errorDiv.innerHTML = '<strong style="color:#fca5a5">JS Error Caught:</strong><br>' + 
+                            e.message + '<br><br>' +
+                            '<strong>At:</strong> ' + e.filename + ':' + e.lineno + ':' + e.colno + '<br><br>' +
+                            '<strong>Stack:</strong><br>' + (e.error ? e.error.stack : 'N/A');
+      document.body.appendChild(errorDiv);
+    });
+  </script>
+</head>
+<body>
+  <!-- 3D Canvas Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Collapsible Cube Menu (Draggable Blobby Nav style) -->
+  <div id="cube-menu-container">
+    <!-- Deco Drag Handle -->
+    <img src="SVG/CubeBurger_Deco.svg" id="menu-drag-handle" alt="drag handle" title="Drag Menu">
+    
+    <!-- Sub Menu Option Items -->
+    <div class="sub-menu-items">
+      <button class="menu-item-btn" data-panel="panel-set"><span>Set</span></button>
+      <button class="menu-item-btn" data-panel="panel-colors"><span>Colors</span></button>
+      <button class="menu-item-btn" data-panel="panel-lines"><span>Lines</span></button>
+      <button class="menu-item-btn" data-panel="panel-view"><span>View</span></button>
+      <button class="menu-item-btn" data-panel="panel-perspective"><span>Lens</span></button>
+      <button class="menu-item-btn" data-panel="panel-rotation"><span>Rotation</span></button>
+      <button class="menu-item-btn" data-panel="panel-automation"><span>Auto</span></button>
+    </div>
+    
+    <!-- Main Burger Toggle Button -->
+    <button id="menu-trigger" title="Toggle Menu">
+      <img src="SVG/CubeBurger.svg" id="menu-trigger-img" alt="Menu Burger">
+    </button>
+  </div>
+
+  <!-- 1. SET PANEL -->
+  <div class="floating-panel" id="panel-set">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Set Settings</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="cube-size">Cube Size</label>
+          <span id="cube-size-val" class="bubble-val">10.0m</span>
+        </div>
+        <input type="range" id="cube-size" min="5" max="25" step="0.5" value="10">
+      </div>
+
+      <div class="control-group hidden" id="front-opacity-group">
+        <div class="label-with-val">
+          <label for="front-opacity">Front-Face Opacity</label>
+          <span id="front-opacity-val" class="bubble-val">0.00</span>
+        </div>
+        <input type="range" id="front-opacity" min="0" max="0.5" step="0.05" value="0">
+        <span class="help-text">Controls visibility of walls closest to camera (Culling Mode)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. COLORS PANEL -->
+  <div class="floating-panel" id="panel-colors">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Wall Colors</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <div class="colors-grid">
+        <!-- X Axis -->
+        <div class="color-axis-row">
+          <span class="axis-label x-color-label">X Wall</span>
+          <input type="color" id="x-bg-color" value="#0e0f19" title="X Solid Background">
+          <input type="color" id="x-line-color" value="#ec4899" title="X Line Color">
+        </div>
+        <!-- Y Axis -->
+        <div class="color-axis-row">
+          <span class="axis-label y-color-label">Y Wall</span>
+          <input type="color" id="y-bg-color" value="#080b11" title="Y Solid Background">
+          <input type="color" id="y-line-color" value="#3b82f6" title="Y Line Color">
+        </div>
+        <!-- Z Axis -->
+        <div class="color-axis-row">
+          <span class="axis-label z-color-label">Z Wall</span>
+          <input type="color" id="z-bg-color" value="#0c101b" title="Z Solid Background">
+          <input type="color" id="z-line-color" value="#10b981" title="Z Line Color">
+        </div>
+      </div>
+      <span class="help-text" style="display:block; text-align:center; margin-top:8px;">Left: Solid Background | Right: Parallel Lines</span>
+    </div>
+  </div>
+
+  <!-- 3. LINES PANEL -->
+  <div class="floating-panel" id="panel-lines">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Line Patterns</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <!-- Axis Sub-tabs -->
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="x-wall"><span>X Wall</span></button>
+        <button class="tab-btn" data-tab="y-wall"><span>Y Wall</span></button>
+        <button class="tab-btn" data-tab="z-wall"><span>Z Wall</span></button>
+      </div>
+
+      <div class="tabs-content">
+        <!-- X Wall settings -->
+        <div class="tab-pane active" id="x-wall">
+          <div class="control-group">
+            <label for="x-spacing-mode">Line Density Mode</label>
+            <select id="x-spacing-mode">
+              <option value="count">Fixed Line Count</option>
+              <option value="density">Calculated by Spacing</option>
+            </select>
+          </div>
+          <div class="control-group" id="x-line-count-group">
+            <div class="label-with-val">
+              <label for="x-line-count">Line Count</label>
+              <span id="x-line-count-val" class="bubble-val">12</span>
+            </div>
+            <input type="range" id="x-line-count" min="2" max="64" step="1" value="12">
+          </div>
+          <div class="control-group hidden" id="x-line-spacing-group">
+            <div class="label-with-val">
+              <label for="x-line-spacing">Line Spacing</label>
+              <span id="x-line-spacing-val" class="bubble-val">40px</span>
+            </div>
+            <input type="range" id="x-line-spacing" min="10" max="150" step="5" value="40">
+          </div>
+          <div class="control-group">
+            <div class="label-with-val">
+              <label for="x-line-width">Line Width</label>
+              <span id="x-line-width-val" class="bubble-val">4px</span>
+            </div>
+            <input type="range" id="x-line-width" min="1" max="24" step="1" value="4">
+          </div>
+          <div class="control-group">
+            <label for="x-orientation">Orientation</label>
+            <select id="x-orientation">
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+              <option value="diagonal">Diagonal (45°)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="x-line-style">Style</label>
+            <select id="x-line-style">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Y Wall settings -->
+        <div class="tab-pane" id="y-wall">
+          <div class="control-group">
+            <label for="y-spacing-mode">Line Density Mode</label>
+            <select id="y-spacing-mode">
+              <option value="count">Fixed Line Count</option>
+              <option value="density">Calculated by Spacing</option>
+            </select>
+          </div>
+          <div class="control-group" id="y-line-count-group">
+            <div class="label-with-val">
+              <label for="y-line-count">Line Count</label>
+              <span id="y-line-count-val" class="bubble-val">12</span>
+            </div>
+            <input type="range" id="y-line-count" min="2" max="64" step="1" value="12">
+          </div>
+          <div class="control-group hidden" id="y-line-spacing-group">
+            <div class="label-with-val">
+              <label for="y-line-spacing">Line Spacing</label>
+              <span id="y-line-spacing-val" class="bubble-val">40px</span>
+            </div>
+            <input type="range" id="y-line-spacing" min="10" max="150" step="5" value="40">
+          </div>
+          <div class="control-group">
+            <div class="label-with-val">
+              <label for="y-line-width">Line Width</label>
+              <span id="y-line-width-val" class="bubble-val">4px</span>
+            </div>
+            <input type="range" id="y-line-width" min="1" max="24" step="1" value="4">
+          </div>
+          <div class="control-group">
+            <label for="y-orientation">Orientation</label>
+            <select id="y-orientation">
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+              <option value="diagonal" selected>Diagonal (45°)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="y-line-style">Style</label>
+            <select id="y-line-style">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Z Wall settings -->
+        <div class="tab-pane" id="z-wall">
+          <div class="control-group">
+            <label for="z-spacing-mode">Line Density Mode</label>
+            <select id="z-spacing-mode">
+              <option value="count">Fixed Line Count</option>
+              <option value="density">Calculated by Spacing</option>
+            </select>
+          </div>
+          <div class="control-group" id="z-line-count-group">
+            <div class="label-with-val">
+              <label for="z-line-count">Line Count</label>
+              <span id="z-line-count-val" class="bubble-val">12</span>
+            </div>
+            <input type="range" id="z-line-count" min="2" max="64" step="1" value="12">
+          </div>
+          <div class="control-group hidden" id="z-line-spacing-group">
+            <div class="label-with-val">
+              <label for="z-line-spacing">Line Spacing</label>
+              <span id="z-line-spacing-val" class="bubble-val">40px</span>
+            </div>
+            <input type="range" id="z-line-spacing" min="10" max="150" step="5" value="40">
+          </div>
+          <div class="control-group">
+            <div class="label-with-val">
+              <label for="z-line-width">Line Width</label>
+              <span id="z-line-width-val" class="bubble-val">4px</span>
+            </div>
+            <input type="range" id="z-line-width" min="1" max="24" step="1" value="4">
+          </div>
+          <div class="control-group">
+            <label for="z-orientation">Orientation</label>
+            <select id="z-orientation">
+              <option value="horizontal" selected>Horizontal</option>
+              <option value="vertical">Vertical</option>
+              <option value="diagonal">Diagonal (45°)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="z-line-style">Style</label>
+            <select id="z-line-style">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. VIEW PANEL -->
+  <div class="floating-panel" id="panel-view">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>View Settings</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <!-- Mode selection -->
+      <div class="control-group">
+        <label for="view-mode">Visualization Mode</label>
+        <select id="view-mode">
+          <option value="culling">Outside Explorer (Peering)</option>
+          <option value="inside" selected>Inside Room (First-Person)</option>
+        </select>
+      </div>
+
+      <!-- Helpers checkboxes -->
+      <div class="checkbox-row" style="margin-bottom:16px;">
+        <label class="custom-checkbox">
+          <input type="checkbox" id="show-axes">
+          <span class="checkmark"></span>
+          Space Axes
+        </label>
+        <label class="custom-checkbox">
+          <input type="checkbox" id="show-grid">
+          <span class="checkmark"></span>
+          Floor Grid
+        </label>
+      </div>
+
+      <!-- Aesthetic Presets Inside View -->
+      <div class="control-group">
+        <label>Aesthetic Presets</label>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="neon-lounge">
+            <span><span class="dot neon-pink"></span> Neon Lounge</span>
+          </button>
+          <button class="preset-btn" data-preset="cyber-grid">
+            <span><span class="dot neon-cyan"></span> Cyber Grid</span>
+          </button>
+          <button class="preset-btn" data-preset="mono-tech">
+            <span><span class="dot mono-white"></span> Mono Tech</span>
+          </button>
+          <button class="preset-btn" data-preset="warm-stripes">
+            <span><span class="dot warm-orange"></span> Amber Wood</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PERSPECTIVE PANEL -->
+  <div class="floating-panel" id="panel-perspective">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Perspective Lens</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="lens-distortion">Lens Type (Fisheye)</label>
+          <span id="lens-distortion-val" class="bubble-val">0 (Flat)</span>
+        </div>
+        <input type="range" id="lens-distortion" min="-50" max="50" step="1" value="0">
+        <span class="help-text">Negative: Pincushion | Positive: Fisheye / Barrel</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. ROTATION PANEL -->
+  <div class="floating-panel" id="panel-rotation">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Manual Rotation</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotation-x">Manual Rotation X</label>
+          <span id="rotation-x-val" class="bubble-val">0°</span>
+        </div>
+        <input type="range" id="rotation-x" min="-180" max="180" step="1" value="0">
+      </div>
+
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotation-y">Manual Rotation Y (Offset)</label>
+          <span id="rotation-y-val" class="bubble-val">0°</span>
+        </div>
+        <input type="range" id="rotation-y" min="-180" max="180" step="1" value="0">
+      </div>
+
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotation-z">Manual Rotation Z</label>
+          <span id="rotation-z-val" class="bubble-val">0°</span>
+        </div>
+        <input type="range" id="rotation-z" min="-180" max="180" step="1" value="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. AUTOMATION PANEL -->
+  <div class="floating-panel" id="panel-automation">
+    <div class="panel-header">
+      <img src="SVG/CubeBurger_Deco.svg" class="panel-deco-handle" alt="handle">
+      <h3>Auto-Rotation</h3>
+      <button class="close-panel" title="Close"><img src="SVG/CubeBurgerClose.svg" class="panel-close-img" alt="Close"></button>
+    </div>
+    <div class="panel-body">
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotate-speed-x">Auto-Rotate X</label>
+          <span id="rotate-speed-x-val" class="bubble-val">0.0</span>
+        </div>
+        <input type="range" id="rotate-speed-x" min="-4" max="4" step="0.2" value="0.0">
+      </div>
+
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotate-speed-y">Auto-Rotate Y</label>
+          <span id="rotate-speed-y-val" class="bubble-val">0.8</span>
+        </div>
+        <input type="range" id="rotate-speed-y" min="-4" max="4" step="0.2" value="0.8">
+      </div>
+
+      <div class="control-group">
+        <div class="label-with-val">
+          <label for="rotate-speed-z">Auto-Rotate Z</label>
+          <span id="rotate-speed-z-val" class="bubble-val">0.0</span>
+        </div>
+        <input type="range" id="rotate-speed-z" min="-4" max="4" step="0.2" value="0.0">
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive 3D script -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
